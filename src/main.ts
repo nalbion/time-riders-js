@@ -22,9 +22,9 @@ function setupScene() {
   scene.background = new THREE.Color(0xaee6f5);
 
   // Camera positioned to see ground and bike (metric: cm)
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 10000); // 10cm to 100m
-  camera.position.set(0, 400, 1000); // 4m up, 10m back
-  camera.lookAt(0, 120, 0); // Look at bike (1.2m high)
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 250000); // 10cm to 2.5km
+  camera.position.set(0, 4000, 10000); // 40m up, 100m back
+  // (camera.lookAt will be set after startPoint is defined)
 
   // Remove any existing Three.js canvas (avoid stacking canvases)
   document.querySelectorAll('canvas').forEach(c => c.remove());
@@ -44,6 +44,12 @@ function setupScene() {
 
   // --- Terrain (ground) ---
   const terrain = new Terrain();
+  // DEBUG: add grid helper at origin
+  const grid = new THREE.GridHelper(20000, 40, 0xff0000, 0x888888);
+  scene.add(grid);
+  // DEBUG: swap terrain material to MeshBasicMaterial for visibility
+  // (terrain.mesh.material as THREE.Material).dispose();
+  // terrain.mesh.material = new THREE.MeshBasicMaterial({ color: 0x6fc276, wireframe: false, side: THREE.DoubleSide });
   scene.add(terrain.mesh);
 
   // --- Track ---
@@ -52,6 +58,8 @@ function setupScene() {
 
   // --- Start marker ---
   const startPoint = track.curve.getPoint(0);
+  // Now set camera to look at the bike start position
+  camera.lookAt(startPoint.x, startPoint.y, startPoint.z);
   const startMarkerGeo = new THREE.CylinderGeometry(200, 200, 40, 32);
   const startMarkerMat = new THREE.MeshStandardMaterial({ color: 0xff2222 });
   const startMarker = new THREE.Mesh(startMarkerGeo, startMarkerMat);
@@ -79,20 +87,34 @@ function setupScene() {
   bike.rotation.y = Math.atan2(startTangent.x, startTangent.z);
   scene.add(bike);
 
+  // Log terrain bounds
+  terrain.mesh.geometry.computeBoundingBox();
+  const terrainBounds = terrain.mesh.geometry.boundingBox;
+  console.log('Terrain bounds:', terrainBounds);
+  console.log('Bike start position:', bike.position);
+
   // --- Controls State ---
-  const keys = { w: false, a: false, s: false, d: false };
+  const keys = { w: false, a: false, s: false, d: false, left: false, right: false, up: false, down: false };
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (e.key === 'w') keys.w = true;
     if (e.key === 'a') keys.a = true;
     if (e.key === 's') keys.s = true;
     if (e.key === 'd') keys.d = true;
+    if (e.key === 'ArrowLeft') keys.left = true;
+    if (e.key === 'ArrowRight') keys.right = true;
+    if (e.key === 'ArrowUp') keys.up = true;
+    if (e.key === 'ArrowDown') keys.down = true;
   });
   window.addEventListener('keyup', (e) => {
     if (e.key === 'w') keys.w = false;
     if (e.key === 'a') keys.a = false;
     if (e.key === 's') keys.s = false;
     if (e.key === 'd') keys.d = false;
+    if (e.key === 'ArrowLeft') keys.left = false;
+    if (e.key === 'ArrowRight') keys.right = false;
+    if (e.key === 'ArrowUp') keys.up = false;
+    if (e.key === 'ArrowDown') keys.down = false;
   });
 
   // --- Bike Physics ---
@@ -195,15 +217,23 @@ function setupScene() {
     const lean = -steer * Math.min(1, bikeSpeed / maxSpeed) * maxLean;
     bike.rotation.z = lean;
 
-    // Camera follows just behind and above the bike (third-person)
+    // --- Camera Follow Bike (from behind, tilting with bike) ---
+    const followDistance = 1200; // cm (12m)
+    const followHeight = 500;    // cm (5m)
+    // Camera offset in the bike's local space (behind and above)
+    const cameraOffset = new THREE.Vector3(0, followHeight, -followDistance); // Z- is "back" in bike local space
+    // Apply bike's world matrix to offset
+    const camWorldPos = cameraOffset.applyMatrix4(bike.matrixWorld);
+    // Smooth camera movement
+    camera.position.lerp(camWorldPos, 0.15);
+    // Look at a point just above the bike (matches tilt)
     const bikeWorldPos = new THREE.Vector3();
     bike.getWorldPosition(bikeWorldPos);
-    // Offset: 500cm (5m) behind, 250cm (2.5m) above, but behind is -Z
-    const behind = new THREE.Vector3(0, 250, -500);
-    // Apply bike rotation to camera offset
-    behind.applyAxisAngle(new THREE.Vector3(0, 1, 0), bike.rotation.y);
-    camera.position.copy(bikeWorldPos).add(behind);
-    camera.lookAt(bikeWorldPos.x, bikeWorldPos.y + 60, bikeWorldPos.z); // Look at bike
+    camera.lookAt(bikeWorldPos.x, bikeWorldPos.y + 60, bikeWorldPos.z);
+    // Log bike position in each frame
+    if (performance.now() % 1000 < 20) { // log every ~1s
+      console.log('Bike position:', bike.position.clone());
+    }
     renderer.render(scene, camera);
   }
 

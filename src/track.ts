@@ -16,13 +16,17 @@ export class Track {
   private points: THREE.Vector3[];
   private terrain: Terrain;
 
-  constructor(terrain: Terrain, numPoints = 18, radius = 70000, width = 1200) {
+  constructor(terrain: Terrain, numPoints = 18, radius?: number, width = 1200) {
     this.width = width;
     this.terrain = terrain;
     this.points = [];
+    // Ensure track fits within terrain bounds
+    const margin = 1000;
+    const maxRadius = (terrain.size / 2) - margin;
+    const trackRadius = Math.min(radius ?? maxRadius * 0.8, maxRadius);
     for (let i = 0; i < numPoints; i++) {
       const angle = (i / numPoints) * Math.PI * 2;
-      const r = radius * (0.8 + Math.random() * 0.4);
+      const r = trackRadius * (0.8 + Math.random() * 0.4);
       const x = Math.cos(angle) * r;
       const z = Math.sin(angle) * r;
       const y = this.terrain.getHeight(x, z) + 30;

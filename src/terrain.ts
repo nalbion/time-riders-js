@@ -13,20 +13,31 @@ export class Terrain {
   public size: number;
   public segments: number;
 
-  constructor(size = 200000, segments = 256) {
+  constructor(size = 20000, segments = 128) {
     this.size = size;
     this.segments = segments;
     const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+    let minHeight = Infinity;
+    let maxHeight = -Infinity;
+    // Swap geometry to XZ plane: set Y=height, X=original X, Z=original Y
     for (let i = 0; i < geometry.attributes.position.count; i++) {
-      const x = geometry.attributes.position.getX(i);
-      const z = geometry.attributes.position.getZ(i);
-      const height = perlin(x, z) * 600 + perlin(x * 2, z * 2) * 200;
+      const origX = geometry.attributes.position.getX(i);
+      const origY = geometry.attributes.position.getY(i);
+      // X = origX, Z = origY, Y = height
+      const height = this.getHeight(origX, origY);
+      if (height < minHeight) minHeight = height;
+      if (height > maxHeight) maxHeight = height;
+      geometry.attributes.position.setX(i, origX);
+      geometry.attributes.position.setZ(i, origY);
       geometry.attributes.position.setY(i, height);
     }
+    console.log('[Terrain] minHeight:', minHeight, 'maxHeight:', maxHeight);
     geometry.computeVertexNormals();
-    const material = new THREE.MeshStandardMaterial({ color: 0x6fc276, flatShading: false, side: THREE.DoubleSide });
+    // DEBUG: Use MeshBasicMaterial for visibility, wireframe ON
+    // Stylised grass material
+    const material = new THREE.MeshStandardMaterial({ color: 0x3da35d, flatShading: true, roughness: 0.85, metalness: 0.15, side: THREE.DoubleSide });
     this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.rotation.x = -Math.PI / 2;
+    // No rotation needed: mesh is now XZ with Y as height
     this.mesh.position.y = 0;
     this.mesh.receiveShadow = true;
     this.mesh.visible = true;
