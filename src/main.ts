@@ -177,6 +177,18 @@ function setupScene() {
     // Set bike Y to terrain height under wheels
     bike.position.y = terrain.getHeight(bike.position.x, bike.position.z) + 60;
 
+    // --- Pitch (tilt up/down for hills) ---
+    // Sample terrain at front and rear wheel
+    const bikeLength = 220; // cm
+    const forwardVec = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), bike.rotation.y).normalize();
+    const rearPos = bike.position.clone().addScaledVector(forwardVec, -bikeLength / 2);
+    const frontPos = bike.position.clone().addScaledVector(forwardVec, bikeLength / 2);
+    const rearY = terrain.getHeight(rearPos.x, rearPos.z) + 60;
+    const frontY = terrain.getHeight(frontPos.x, frontPos.z) + 60;
+    // Pitch angle: atan2(height difference, wheelbase)
+    const pitch = Math.atan2(frontY - rearY, bikeLength);
+    bike.rotation.x = pitch;
+
     // --- Leaning ---
     // Lean into corners: negative for left, positive for right
     const maxLean = Math.PI / 7; // max lean angle ~25deg
