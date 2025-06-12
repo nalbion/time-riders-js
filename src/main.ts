@@ -195,8 +195,69 @@ function setupScene() {
     }
     bike.rotation.y = bikeRotY;
     // Move bike forward in its local +Z (geometry +Z is forward)
-    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(bike.quaternion).normalize();
+    const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), bikeRotY);
     bike.position.addScaledVector(forward, bikeSpeed);
+    // Set bike Y to terrain height under wheels
+    bike.position.y = terrain.getHeight(bike.position.x, bike.position.z) + 60;
+
+    // --- Pitch (tilt up/down for hills) ---
+    // Sample terrain at front and rear wheel
+    const bikeLength = 220; // cm
+    const forwardVec = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), bike.rotation.y).normalize();
+    const rearPos = bike.position.clone().addScaledVector(forwardVec, -bikeLength / 2);
+    const frontPos = bike.position.clone().addScaledVector(forwardVec, bikeLength / 2);
+    const rearY = terrain.getHeight(rearPos.x, rearPos.z) + 60;
+    const frontY = terrain.getHeight(frontPos.x, frontPos.z) + 60;
+    // Pitch angle: atan2(height difference, wheelbase)
+    const pitch = Math.atan2(frontY - rearY, bikeLength);
+    bike.rotation.x = pitch;
+
+    // --- Leaning ---
+    // Lean into corners: negative for left, positive for right
+    const maxLean = Math.PI / 7; // max lean angle ~25deg
+    const lean = -steer * Math.min(1, bikeSpeed / maxSpeed) * maxLean;
+    bike.rotation.z = lean;
+
+    // Camera follows just behind and above the bike (third-person)
+    const bikeWorldPos = new THREE.Vector3();
+    bike.getWorldPosition(bikeWorldPos);
+    // Offset: 500cm (5m) behind, 250cm (2.5m) above, but behind is -Z
+    const behind = new THREE.Vector3(0, 250, -500);
+    // Apply bike rotation to camera offset
+    behind.applyAxisAngle(new THREE.Vector3(0, 1, 0), bike.rotation.y);
+    camera.position.copy(bikeWorldPos).add(behind);
+    camera.lookAt(bikeWorldPos.x, bikeWorldPos.y + 60, bikeWorldPos.z); // Look at bike
+    renderer.render(scene, camera);
+  }
+
+  function animate2() {
+    requestAnimationFrame(animate);
+
+    // --- Update Bike Physics ---
+    // Throttle/Brake
+    if (keys.w) bikeSpeed += accel;
+    if (keys.s) bikeSpeed -= brake * Math.sign(bikeSpeed); // S only slows, not reverses
+    // Friction
+    if (!keys.w && !keys.s) {
+      if (bikeSpeed > 0) bikeSpeed = Math.max(0, bikeSpeed - friction);
+      else if (bikeSpeed < 0) bikeSpeed = Math.min(0, bikeSpeed + friction);
+    }
+    // Clamp speed (no reverse)
+    bikeSpeed = Math.max(0, Math.min(maxSpeed, bikeSpeed));
+    // Steering
+    let steer = 0;
+    if (keys.a) steer += 1;
+    if (keys.d) steer -= 1;
+    if (bikeSpeed > 0.5) {
+      bikeRotY += steerSpeed * steer;
+    }
+    bike.rotation.y = bikeRotY;
+    // Move bike forward in its local +Z (geometry +Z is forward), using only yaw (rotation.y)
+    // const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), bikeRotY);
+    // bike.position.addScaledVector(forward, bikeSpeed);
+
+    const forwardYaw = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), bike.rotation.y).normalize();
+    bike.position.addScaledVector(forwardYaw, bikeSpeed);
     // Set bike Y to terrain height under wheels
     bike.position.y = terrain.getHeight(bike.position.x, bike.position.z) + 60;
 
@@ -233,6 +294,19 @@ function setupScene() {
     cameraRig.rotation.set(0, bike.rotation.y, bike.rotation.z);
     // Camera always looks at a point just above bike (in rig's local space)
     camera.lookAt(new THREE.Vector3(0, 60, 0));
+
+
+    // const bikeWorldPos = new THREE.Vector3();
+    // bike.getWorldPosition(bikeWorldPos);
+    // // Offset: 500cm (5m) behind, 250cm (2.5m) above, but behind is -Z
+    // const behind = new THREE.Vector3(0, 250, -500);
+    // // Apply bike rotation to camera offset
+    // behind.applyAxisAngle(new THREE.Vector3(0, 1, 0), bike.rotation.y);
+    // camera.position.copy(bikeWorldPos).add(behind);
+    // camera.lookAt(bikeWorldPos.x, bikeWorldPos.y + 60, bikeWorldPos.z); // Look at bike
+
+
+
     // Log bike position in each frame
     if (performance.now() % 1000 < 20) { // log every ~1s
       console.log('Bike position:', bike.position.clone());
