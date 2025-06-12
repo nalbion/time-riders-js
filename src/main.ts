@@ -44,9 +44,7 @@ function setupScene() {
 
   // --- Terrain (ground) ---
   const terrain = new Terrain();
-  // DEBUG: add grid helper at origin
-  const grid = new THREE.GridHelper(20000, 40, 0xff0000, 0x888888);
-  scene.add(grid);
+
   // DEBUG: swap terrain material to MeshBasicMaterial for visibility
   // (terrain.mesh.material as THREE.Material).dispose();
   // terrain.mesh.material = new THREE.MeshBasicMaterial({ color: 0x6fc276, wireframe: false, side: THREE.DoubleSide });
@@ -171,6 +169,9 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
+  // Camera rig for banking camera with bike
+  let cameraRig: THREE.Object3D | null = null;
+
   function animate() {
     requestAnimationFrame(animate);
 
@@ -194,7 +195,7 @@ function setupScene() {
     }
     bike.rotation.y = bikeRotY;
     // Move bike forward in its local +Z (geometry +Z is forward)
-    const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), bikeRotY);
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(bike.quaternion).normalize();
     bike.position.addScaledVector(forward, bikeSpeed);
     // Set bike Y to terrain height under wheels
     bike.position.y = terrain.getHeight(bike.position.x, bike.position.z) + 60;
@@ -217,19 +218,21 @@ function setupScene() {
     const lean = -steer * Math.min(1, bikeSpeed / maxSpeed) * maxLean;
     bike.rotation.z = lean;
 
-    // --- Camera Follow Bike (from behind, tilting with bike) ---
-    const followDistance = 1200; // cm (12m)
-    const followHeight = 500;    // cm (5m)
-    // Camera offset in the bike's local space (behind and above)
-    const cameraOffset = new THREE.Vector3(0, followHeight, -followDistance); // Z- is "back" in bike local space
-    // Apply bike's world matrix to offset
-    const camWorldPos = cameraOffset.applyMatrix4(bike.matrixWorld);
-    // Smooth camera movement
-    camera.position.lerp(camWorldPos, 0.15);
-    // Look at a point just above the bike (matches tilt)
-    const bikeWorldPos = new THREE.Vector3();
-    bike.getWorldPosition(bikeWorldPos);
-    camera.lookAt(bikeWorldPos.x, bikeWorldPos.y + 60, bikeWorldPos.z);
+    // --- Camera Follow Bike (closer, banks/rolls with bike) ---
+    const followDistance = 650; // cm (6.5m)
+    const followHeight = 220;   // cm (2.2m)
+    // Use a camera rig to bank/roll with the bike
+    if (!cameraRig) {
+      cameraRig = new THREE.Object3D();
+      scene.add(cameraRig);
+      cameraRig.add(camera);
+      camera.position.set(0, followHeight, -followDistance);
+    }
+    // Copy bike position and rotation.z (lean)
+    cameraRig.position.copy(bike.position);
+    cameraRig.rotation.set(0, bike.rotation.y, bike.rotation.z);
+    // Camera always looks at a point just above bike (in rig's local space)
+    camera.lookAt(new THREE.Vector3(0, 60, 0));
     // Log bike position in each frame
     if (performance.now() % 1000 < 20) { // log every ~1s
       console.log('Bike position:', bike.position.clone());
