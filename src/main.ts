@@ -163,49 +163,33 @@ function setupScene() {
     }
   }
 
-  // Show tilt enable button on mobile
-  // Only show tilt button if permission not yet granted and not already enabled
-  let tiltBtn: HTMLButtonElement | null = null;
-  function hideTiltBtn() {
-    if (tiltBtn && tiltBtn.parentElement) tiltBtn.parentElement.removeChild(tiltBtn);
-    tiltBtn = null;
-  }
+  // --- Auto-enable tilt controls on mobile ---
   if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    // Try to detect if permission already granted (iOS)
-    let permissionChecked = false;
-    function showTiltBtnIfNeeded() {
-      if (!tiltEnabled && !permissionChecked) {
-        if (!tiltBtn) {
-          tiltBtn = document.createElement('button');
-          tiltBtn.innerText = 'Enable Tilt Controls';
-          tiltBtn.style.position = 'fixed';
-          tiltBtn.style.bottom = '18px';
-          tiltBtn.style.right = '18px';
-          tiltBtn.style.zIndex = '2000';
-          tiltBtn.style.padding = '0.7rem 1.4rem';
-          tiltBtn.style.fontSize = '1.1rem';
-          tiltBtn.style.background = '#2196f3';
-          tiltBtn.style.color = '#fff';
-          tiltBtn.style.border = 'none';
-          tiltBtn.style.borderRadius = '10px';
-          tiltBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.10)';
-          tiltBtn.style.cursor = 'pointer';
-          tiltBtn.onclick = enableTiltControls;
-          document.body.appendChild(tiltBtn);
-        }
+    function autoEnableTiltControls() {
+      if (tiltEnabled) return;
+      if (typeof window.DeviceOrientationEvent !== 'undefined' && typeof (window.DeviceOrientationEvent as any).requestPermission === 'function') {
+        // iOS 13+: must request permission
+        (window.DeviceOrientationEvent as any).requestPermission().then((response: string) => {
+          if (response === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation);
+            tiltEnabled = true;
+            window.dispatchEvent(new Event('tiltcontrols:enabled'));
+            // Optionally, show a toast or hint here
+          } else {
+            alert('Tilt controls permission denied. Enable in Settings > Safari > Motion & Orientation Access.');
+          }
+        }).catch(() => {
+          alert('Tilt controls permission denied or not supported.');
+        });
+      } else if ('ondeviceorientation' in window) {
+        window.addEventListener('deviceorientation', handleOrientation);
+        tiltEnabled = true;
+        window.dispatchEvent(new Event('tiltcontrols:enabled'));
       } else {
-        hideTiltBtn();
+        alert('Tilt controls not supported on this device/browser.');
       }
     }
-    // iOS 13+: try to check permission state
-    if (typeof window.DeviceOrientationEvent !== 'undefined' && typeof (window.DeviceOrientationEvent as any).requestPermission === 'function') {
-      (window.DeviceOrientationEvent as any).requestPermission().catch(() => {}) // don't actually request, just check
-        .finally(() => { permissionChecked = true; showTiltBtnIfNeeded(); });
-    } else {
-      showTiltBtnIfNeeded();
-    }
-    // Also hide button after enabling
-    window.addEventListener('tiltcontrols:enabled', hideTiltBtn);
+    autoEnableTiltControls();
   }
 
 
