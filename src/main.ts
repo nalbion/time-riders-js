@@ -149,37 +149,65 @@ function setupScene() {
         if (response === 'granted') {
           window.addEventListener('deviceorientation', handleOrientation);
           tiltEnabled = true;
+          window.dispatchEvent(new Event('tiltcontrols:enabled'));
           alert('Tilt controls enabled! Hold phone landscape. Tilt forward/back to throttle/brake, left/right to steer.');
         }
       });
     } else if ('ondeviceorientation' in window) {
       window.addEventListener('deviceorientation', handleOrientation);
       tiltEnabled = true;
-      alert('Tilt controls enabled! Hold phone landscape. Tilt forward/back to throttle/brake, left/right to steer.');
+      window.dispatchEvent(new Event('tiltcontrols:enabled'));
+      alert('Tilt controls enabled! Hold phone landscape. Tilt forward/back to throttle/brake, left/right to steer.' );
     } else {
       alert('Tilt controls not supported on this device/browser.');
     }
   }
 
   // Show tilt enable button on mobile
-  if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    const tiltBtn = document.createElement('button');
-    tiltBtn.innerText = 'Enable Tilt Controls';
-    tiltBtn.style.position = 'fixed';
-    tiltBtn.style.bottom = '18px';
-    tiltBtn.style.right = '18px';
-    tiltBtn.style.zIndex = '2000';
-    tiltBtn.style.padding = '0.7rem 1.4rem';
-    tiltBtn.style.fontSize = '1.1rem';
-    tiltBtn.style.background = '#2196f3';
-    tiltBtn.style.color = '#fff';
-    tiltBtn.style.border = 'none';
-    tiltBtn.style.borderRadius = '10px';
-    tiltBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.10)';
-    tiltBtn.style.cursor = 'pointer';
-    tiltBtn.onclick = enableTiltControls;
-    document.body.appendChild(tiltBtn);
+  // Only show tilt button if permission not yet granted and not already enabled
+  let tiltBtn: HTMLButtonElement | null = null;
+  function hideTiltBtn() {
+    if (tiltBtn && tiltBtn.parentElement) tiltBtn.parentElement.removeChild(tiltBtn);
+    tiltBtn = null;
   }
+  if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    // Try to detect if permission already granted (iOS)
+    let permissionChecked = false;
+    function showTiltBtnIfNeeded() {
+      if (!tiltEnabled && !permissionChecked) {
+        if (!tiltBtn) {
+          tiltBtn = document.createElement('button');
+          tiltBtn.innerText = 'Enable Tilt Controls';
+          tiltBtn.style.position = 'fixed';
+          tiltBtn.style.bottom = '18px';
+          tiltBtn.style.right = '18px';
+          tiltBtn.style.zIndex = '2000';
+          tiltBtn.style.padding = '0.7rem 1.4rem';
+          tiltBtn.style.fontSize = '1.1rem';
+          tiltBtn.style.background = '#2196f3';
+          tiltBtn.style.color = '#fff';
+          tiltBtn.style.border = 'none';
+          tiltBtn.style.borderRadius = '10px';
+          tiltBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.10)';
+          tiltBtn.style.cursor = 'pointer';
+          tiltBtn.onclick = enableTiltControls;
+          document.body.appendChild(tiltBtn);
+        }
+      } else {
+        hideTiltBtn();
+      }
+    }
+    // iOS 13+: try to check permission state
+    if (typeof window.DeviceOrientationEvent !== 'undefined' && typeof (window.DeviceOrientationEvent as any).requestPermission === 'function') {
+      (window.DeviceOrientationEvent as any).requestPermission().catch(() => {}) // don't actually request, just check
+        .finally(() => { permissionChecked = true; showTiltBtnIfNeeded(); });
+    } else {
+      showTiltBtnIfNeeded();
+    }
+    // Also hide button after enabling
+    window.addEventListener('tiltcontrols:enabled', hideTiltBtn);
+  }
+
 
   // --- Bike Physics ---
   let bikeSpeed = 0; // cm/frame
@@ -190,6 +218,39 @@ function setupScene() {
   const friction = 0.7; // cm/frame^2
   const steerSpeed = 0.025; // radians/frame
 
+  // --- Controls Instructions Overlay ---
+  let controlsOverlay = document.getElementById('controls-overlay') as HTMLDivElement | null;
+  if (!controlsOverlay) {
+    controlsOverlay = document.createElement('div');
+    controlsOverlay.id = 'controls-overlay';
+    controlsOverlay.style.position = 'fixed';
+    controlsOverlay.style.top = '0';
+    controlsOverlay.style.left = '0';
+    controlsOverlay.style.width = '100vw';
+    controlsOverlay.style.padding = 'max(2vw,12px)';
+    controlsOverlay.style.background = 'rgba(30,40,60,0.85)';
+    controlsOverlay.style.color = '#fff';
+    controlsOverlay.style.fontSize = 'clamp(1rem, 2vw, 1.4rem)';
+    controlsOverlay.style.fontFamily = 'sans-serif';
+    controlsOverlay.style.zIndex = '1500';
+    controlsOverlay.style.textAlign = 'center';
+    controlsOverlay.style.borderBottomLeftRadius = '18px';
+    controlsOverlay.style.borderBottomRightRadius = '18px';
+    controlsOverlay.innerHTML =
+      '<b>Controls:</b> <br>' +
+      'WASD or Arrow keys: Move & Steer<br>' +
+      'Space: Restart &nbsp; | &nbsp; M: Toggle Music<br>' +
+      'On mobile: Tap "Enable Tilt Controls"<br>' +
+      '<span style="font-size:0.9em;">Tip: Tilt phone to steer/throttle/brake</span>';
+    document.body.appendChild(controlsOverlay);
+  }
+
+  function hideControlsOverlay() {
+    if (controlsOverlay && controlsOverlay.parentElement) {
+      controlsOverlay.parentElement.removeChild(controlsOverlay);
+      controlsOverlay = null;
+    }
+  }
 
   // Add overlays: player info and controls
   const overlay = document.createElement('div');
@@ -294,6 +355,15 @@ function setupScene() {
     camera.position.copy(bikeWorldPos).add(behind);
     camera.lookAt(bikeWorldPos.x, bikeWorldPos.y + 60, bikeWorldPos.z); // Look at bike
     renderer.render(scene, camera);
+
+    // Hide controls overlay if bike starts moving
+    if (controlsOverlay && bikeSpeed > 0.5) {
+      hideControlsOverlay();
+    }
+    // Hide tilt button if tilt enabled
+    if (tiltBtn && tiltEnabled) {
+      hideTiltBtn();
+    }
   }
 
   function animate2() {
