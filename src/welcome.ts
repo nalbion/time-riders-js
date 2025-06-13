@@ -12,6 +12,9 @@ export function createWelcomeScreen(onStart: (playerName: string, character: Cha
   container.style.left = '0';
   container.style.width = '100vw';
   container.style.height = '100vh';
+  container.style.maxWidth = '100vw';
+  container.style.maxHeight = '100vh';
+  container.style.overflowY = 'auto'; // allow scroll on mobile
   container.style.background = 'rgba(174, 230, 245, 0.95)';
   container.style.display = 'flex';
   container.style.flexDirection = 'column';
@@ -22,25 +25,30 @@ export function createWelcomeScreen(onStart: (playerName: string, character: Cha
 
   const title = document.createElement('h1');
   title.innerText = 'Time Riders';
-  title.style.fontSize = '3rem';
-  title.style.marginBottom = '1rem';
+  title.style.fontSize = '2.2rem';
+  title.style.marginBottom = '0.6rem';
+  title.style.textAlign = 'center';
+  title.style.wordBreak = 'break-word';
   container.appendChild(title);
 
   const nameLabel = document.createElement('label');
   nameLabel.innerText = 'Enter your name:';
-  nameLabel.style.fontSize = '1.2rem';
-  nameLabel.style.marginBottom = '0.5rem';
+  nameLabel.style.fontSize = '1.1rem';
+  nameLabel.style.marginBottom = '0.3rem';
+  nameLabel.style.textAlign = 'center';
   nameLabel.htmlFor = 'player-name';
   container.appendChild(nameLabel);
 
   const nameInput = document.createElement('input');
   nameInput.id = 'player-name';
   nameInput.type = 'text';
-  nameInput.style.fontSize = '1.2rem';
-  nameInput.style.marginBottom = '1rem';
-  nameInput.style.padding = '0.5rem';
+  nameInput.style.fontSize = '1.1rem';
+  nameInput.style.marginBottom = '0.7rem';
+  nameInput.style.padding = '0.5rem 0.7rem';
   nameInput.style.borderRadius = '8px';
   nameInput.style.border = '1px solid #ccc';
+  nameInput.style.width = 'min(90vw, 350px)';
+  nameInput.style.boxSizing = 'border-box';
   nameInput.setAttribute('aria-label', 'Player Name');
 
   // Load player name from localStorage or use default
@@ -56,16 +64,18 @@ export function createWelcomeScreen(onStart: (playerName: string, character: Cha
 
   const charLabel = document.createElement('div');
   charLabel.innerText = 'Choose your character:';
-  charLabel.style.fontSize = '1.2rem';
-  charLabel.style.marginBottom = '0.5rem';
+  charLabel.style.fontSize = '1.1rem';
+  charLabel.style.marginBottom = '0.3rem';
+  charLabel.style.textAlign = 'center';
   container.appendChild(charLabel);
 
   const charGrid = document.createElement('div');
   charGrid.style.display = 'flex';
   charGrid.style.flexWrap = 'wrap';
   charGrid.style.justifyContent = 'center';
-  charGrid.style.gap = '1.5rem';
-  charGrid.style.marginBottom = '1rem';
+  charGrid.style.gap = '1.1rem';
+  charGrid.style.marginBottom = '0.7rem';
+  charGrid.style.width = '100%';
 
   // Load selected character from localStorage or use default (first character)
   let selectedChar: Character | null = null;
@@ -82,8 +92,8 @@ export function createWelcomeScreen(onStart: (playerName: string, character: Cha
     btn.style.flexDirection = 'column';
     btn.style.alignItems = 'center';
     btn.style.justifyContent = 'center';
-    btn.style.width = '120px';
-    btn.style.height = '160px';
+    btn.style.width = 'min(28vw, 120px)';
+    btn.style.height = 'min(36vw, 160px)';
     btn.style.background = '#fff';
     btn.style.border = '2px solid #6fc276';
     btn.style.borderRadius = '12px';
@@ -96,8 +106,8 @@ export function createWelcomeScreen(onStart: (playerName: string, character: Cha
     const img = document.createElement('img');
     img.src = char.img;
     img.alt = char.name;
-    img.style.width = '80px';
-    img.style.height = '80px';
+    img.style.width = 'min(16vw, 70px)';
+    img.style.height = 'min(16vw, 70px)';
     img.style.objectFit = 'cover';
     img.style.borderRadius = '50%';
     img.style.marginBottom = '0.5rem';
@@ -128,14 +138,16 @@ export function createWelcomeScreen(onStart: (playerName: string, character: Cha
 
   const startBtn = document.createElement('button');
   startBtn.innerText = 'Start Game';
-  startBtn.style.fontSize = '1.3rem';
-  startBtn.style.padding = '0.7rem 2rem';
-  startBtn.style.borderRadius = '10px';
+  startBtn.style.fontSize = '1.1rem';
+  startBtn.style.padding = '0.6rem 1.2rem';
+  startBtn.style.borderRadius = '9px';
   startBtn.style.background = '#2196f3';
   startBtn.style.color = '#fff';
   startBtn.style.border = 'none';
   startBtn.style.cursor = 'pointer';
-  startBtn.style.marginTop = '1rem';
+  startBtn.style.marginTop = '0.7rem';
+  startBtn.style.width = 'min(80vw, 320px)';
+  startBtn.style.boxSizing = 'border-box';
   startBtn.disabled = true;
   startBtn.setAttribute('aria-disabled', 'true');
 
