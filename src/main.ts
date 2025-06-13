@@ -344,10 +344,7 @@ function setupScene() {
     if (controlsOverlay && bikeSpeed > 0.5) {
       hideControlsOverlay();
     }
-    // Hide tilt button if tilt enabled
-    if (tiltBtn && tiltEnabled) {
-      hideTiltBtn();
-    }
+
   }
 
   function animate2() {
