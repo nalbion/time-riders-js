@@ -115,6 +115,72 @@ function setupScene() {
     if (e.key === 'ArrowDown') keys.down = false;
   });
 
+  // --- Mobile Tilt Controls ---
+  let tiltEnabled = false;
+  let tiltSensitivity = 1.0;
+  let lastBeta = 0, lastGamma = 0;
+
+  function handleOrientation(event: DeviceOrientationEvent) {
+    // event.beta: front-back tilt [-180,180], event.gamma: left-right tilt [-90,90]
+    lastBeta = event.beta ?? 0;
+    lastGamma = event.gamma ?? 0;
+    // Throttle/brake: forward/back tilt
+    if (lastBeta > 20 * tiltSensitivity) {
+      keys.w = true; keys.s = false;
+    } else if (lastBeta < -10 * tiltSensitivity) {
+      keys.s = true; keys.w = false;
+    } else {
+      keys.w = false; keys.s = false;
+    }
+    // Steering: left/right tilt
+    if (lastGamma > 10 * tiltSensitivity) {
+      keys.a = false; keys.d = true;
+    } else if (lastGamma < -10 * tiltSensitivity) {
+      keys.a = true; keys.d = false;
+    } else {
+      keys.a = false; keys.d = false;
+    }
+  }
+
+  function enableTiltControls() {
+    // iOS: requestPermission is not in TypeScript types, so cast to any
+    if (typeof window.DeviceOrientationEvent !== 'undefined' && typeof (window.DeviceOrientationEvent as any).requestPermission === 'function') {
+      (window.DeviceOrientationEvent as any).requestPermission().then((response: string) => {
+        if (response === 'granted') {
+          window.addEventListener('deviceorientation', handleOrientation);
+          tiltEnabled = true;
+          alert('Tilt controls enabled! Hold phone landscape. Tilt forward/back to throttle/brake, left/right to steer.');
+        }
+      });
+    } else if ('ondeviceorientation' in window) {
+      window.addEventListener('deviceorientation', handleOrientation);
+      tiltEnabled = true;
+      alert('Tilt controls enabled! Hold phone landscape. Tilt forward/back to throttle/brake, left/right to steer.');
+    } else {
+      alert('Tilt controls not supported on this device/browser.');
+    }
+  }
+
+  // Show tilt enable button on mobile
+  if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    const tiltBtn = document.createElement('button');
+    tiltBtn.innerText = 'Enable Tilt Controls';
+    tiltBtn.style.position = 'fixed';
+    tiltBtn.style.bottom = '18px';
+    tiltBtn.style.right = '18px';
+    tiltBtn.style.zIndex = '2000';
+    tiltBtn.style.padding = '0.7rem 1.4rem';
+    tiltBtn.style.fontSize = '1.1rem';
+    tiltBtn.style.background = '#2196f3';
+    tiltBtn.style.color = '#fff';
+    tiltBtn.style.border = 'none';
+    tiltBtn.style.borderRadius = '10px';
+    tiltBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.10)';
+    tiltBtn.style.cursor = 'pointer';
+    tiltBtn.onclick = enableTiltControls;
+    document.body.appendChild(tiltBtn);
+  }
+
   // --- Bike Physics ---
   let bikeSpeed = 0; // cm/frame
   let bikeRotY = 0;  // radians
